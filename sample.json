@@ -1,0 +1,44 @@
+{
+    "5X76HR": {
+        "descricao_vendas": "TRACKER AT TURBO 116cv",
+        "marca_modelo": 149038,
+        "descricao_cat": "CHEV TRACKER T A",
+        "producao": "BRASIL"
+    },
+    "5B76HR": {
+        "descricao_vendas": "TRACKER LT AT TURBO 116cv",
+        "marca_modelo": 104698,
+        "descricao_cat": "CHEV TRACKER T A LT",
+        "producao": "BRASIL"
+    },
+    "5N76HR": {
+        "descricao_vendas": "TRACKER LTZ AT TURBO 116cv",
+        "marca_modelo": 149039,
+        "descricao_cat": "CHEV TRACKER T A LTZ",
+        "producao": "BRASIL"
+    },
+    "5P76BR": {
+        "descricao_vendas": "TRACKER PREMIER AT TURBO 133cv",
+        "marca_modelo": 149037,
+        "descricao_cat": "CHEV TRACKER 12T A PR",
+        "producao": "BRASIL"
+    },
+    "3B76HR": {
+        "descricao_vendas": "TRACKER LT AT TURBO 116cv",
+        "marca_modelo": 100197,
+        "descricao_cat": "I/CHEV TRACKER T A LT",
+        "producao": "ARGENTINA"
+    },
+    "3N76HR": {
+        "descricao_vendas": "TRACKER LTZ AT TURBO 116cv",
+        "marca_modelo": 100195,
+        "descricao_cat": "I/CHEV TRACKER T A LTZ",
+        "producao": "ARGENTINA"
+    },
+    "3P76BR": {
+        "descricao_vendas": "TRACKER PREMIER AT TURBO 133cv",
+        "marca_modelo": 100194,
+        "descricao_cat": "I/CHEV TRACKER 12T A PR",
+        "producao": "ARGENTINA"
+    }
+}

@@ -46,3 +46,23 @@ car_json = json.dumps(cars_map, indent=4)
 file = open("sample.json", "w")
 file.write(str(car_json))
 file.close()
+
+# Montando a lista de descrições. A chave é o código de vendas e o valor é a informação pelo código
+descriptions = []
+for i in range(len(blue_tables_indexes)):
+    column_description = df[blue_tables_indexes[i]].columns[0]
+    descriptions = df[blue_tables_indexes[i]][column_description].tolist()
+
+# TODO: conseguir pegar os dados da tabela azul e colocar no dicionário de carros.
+for i in range(len(blue_tables_indexes)):
+        column_data = df[blue_tables_indexes[i]].columns[1]
+        datas = df[blue_tables_indexes[i]][column_data]
+        if cars_map.get(datas[i]) is not None:
+            for j in range(3,len(datas)):
+                if datas[j] == "nan":
+                    cars_map[datas[i]][descriptions[4]] = "Não"
+                    print(cars_map[datas[i]][descriptions[4]])
+                if datas[j] == "X":
+                    cars_map[datas[i]][descriptions[4]] = "Sim"
+                    print(cars_map[datas[i]][descriptions[4]])
+            print(cars_map.get(datas[i]))

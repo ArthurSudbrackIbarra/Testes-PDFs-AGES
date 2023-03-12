@@ -1,7 +1,8 @@
-from tabula import read_pdf
+import tabula
+import json
 
 # Lendo o PDF.
-df = read_pdf("carros.pdf", pages="1,2", lattice=True, multiple_tables=True)
+df = tabula.read_pdf("carros.pdf", pages="1,2", lattice=True, multiple_tables=True)
 
 # Removendo os caracteres '\r' dos nomes das colunas.
 # Removendo as colunas 'fantasmas' (Unnamed).
@@ -36,9 +37,12 @@ for i in range(len(green_tables_indexes)):
         producao = iloc[4]
         cars_map[codigo_vendas] = {
             "descricao_vendas": descricao_vendas,
-            "marca_modelo": marca_modelo,
+            "marca_modelo": int(marca_modelo),
             "descricao_cat": descricao_cat,
             "producao": producao
         }
-
-print(cars_map)
+# Salvando os dados do dicionário como um JSON em um arquivo
+car_json = json.dumps(cars_map, indent=4)
+file = open("sample.json", "w")
+file.write(str(car_json))
+file.close()

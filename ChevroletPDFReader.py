@@ -1,6 +1,7 @@
 import tabula
 from fuzzywuzzy import fuzz
 import pandas as pd
+import csv
 
 TABLE_GROUP_NAMES = ['Introduction', 'Configuration', 'Specification', 'Accessories']
 
@@ -19,7 +20,7 @@ TABLE_GROUP_NAMES = ['Introduction', 'Configuration', 'Specification', 'Accessor
 class ChevroletPDFReader:
     def __init__(self, filename):
         # Read all tables from the PDF file.
-        dataframes = tabula.read_pdf(filename, pages='all', lattice=True, multiple_tables=True)
+        dataframes = tabula.read_pdf(filename, pages='all', lattice=True, multiple_tables=True, encoding='latin-1')
         # Call the initial setup method.
         self._initial_setup(dataframes)
 
@@ -47,6 +48,7 @@ class ChevroletPDFReader:
                     del dataframe[column]
             # Don't consider tables with only one column.
             if len(dataframe.columns) <= 1:
+                print(dataframe)
                 continue
             # Is the current table of the same group as the previous one?
             # Or is it a completely new group?
@@ -140,6 +142,16 @@ class ChevroletPDFReader:
         # Return the value of the column.
         # This line is not working...
         return table[chosen_column][table[chosen_column] == chosen_line].index[0]
+    
+
+    def print_tables(self):
+        for table_group in self._tables_by_group:
+            print(table_group)
+            for table in self._tables_by_group[table_group]:
+                print(table)
+                with open('data.csv', mode='w') as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerows(table)
 
 
 reader = ChevroletPDFReader('carros.pdf')
@@ -148,3 +160,4 @@ print(value)
 
 value2 = reader.get_column_value_by_line_name('Configuration', 0, 'TRACKER - ANO/MODELO 2024', 'Alarme Anti-furto')
 print(value2)
+reader.print_tables()

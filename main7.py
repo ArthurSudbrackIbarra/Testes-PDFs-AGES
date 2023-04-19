@@ -1,7 +1,7 @@
 from tabula import read_pdf
 
 # Lendo o PDF.
-df = read_pdf("carros.pdf", pages="1,2", lattice=True, multiple_tables=True)
+df = read_pdf("carros.pdf", pages="1,2", lattice=True, multiple_tables=True, encoding='latin-1')
 
 # Removendo os caracteres '\r' dos nomes das colunas.
 # Removendo as colunas 'fantasmas' (Unnamed).

@@ -1,7 +1,8 @@
+from os import PathLike
 import tabula
 from fuzzywuzzy import fuzz
 from pandas import DataFrame
-from typing import Union, List, Dict, Tuple
+from typing import Union, List, Dict, Tuple, IO
 
 
 # This class reads a PDF file and separates the tables into groups.
@@ -12,7 +13,8 @@ from typing import Union, List, Dict, Tuple
 # Introduction
 # Configuration
 # Specification
-# Accessories
+# Accessories 1
+# Accessories 2 (For now...) [BUG]
 #
 # This class offers methods so that TabulaPy manipulation is abstracted away.
 class ChevroletPDFReader:
@@ -23,9 +25,9 @@ class ChevroletPDFReader:
     ACCESSORIES_2_GROUP = 'Accessories 2'
     _TABLE_GROUP_NAMES = [INTRODUCTION_GROUP, CONFIGURATION_GROUP, SPECIFICATION_GROUP, ACCESSORIES_1_GROUP, ACCESSORIES_2_GROUP]
 
-    def __init__(self, filename):
+    def __init__(self, input_path: Union[IO, str, PathLike]):
         # Read all tables from the PDF file.
-        dataframes = tabula.read_pdf(filename, pages='all', lattice=True, multiple_tables=True)
+        dataframes = tabula.read_pdf(input_path, pages='all', lattice=True, multiple_tables=True)
         # Call the initial setup method.
         self._initial_setup(dataframes)
 
@@ -101,7 +103,7 @@ class ChevroletPDFReader:
     # it will be used as the line number. If it is a tuple, it will be used as a tuple (column_number, line_name).
     # Line names are also matched using fuzzywuzzy.
     def get_column_value(self, table_group: str, table_index: int, column_index_or_name: Union[int, str],
-                         line_number_or_name: Union[int, Tuple[int, str]]):
+                         line_number_or_name: Union[int, Tuple[int, str]]) -> str:
         # Return empty string if the table group doesn't exist.
         if table_group not in self._tables_by_group:
             return ''

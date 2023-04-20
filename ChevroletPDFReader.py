@@ -1,8 +1,10 @@
 import tabula
 from fuzzywuzzy import fuzz
 import pandas as pd
+from pandas import DataFrame
+from typing import Union, List, Dict, Tuple
 
-TABLE_GROUP_NAMES = ['Introduction', 'Configuration', 'Specification', 'Accessories']
+TABLE_GROUP_NAMES = ['Introduction', 'Configuration', 'Specification', 'Accessories', 'Accessories 2']
 
 
 # This class reads a PDF file and separates the tables into groups.
@@ -26,14 +28,13 @@ class ChevroletPDFReader:
     # This method separates the tables into groups and sanitizes the dataframes.
     def _initial_setup(self, dataframes) -> None:
         # Map of tables by group.
-        self._tables_by_group = {}
+        self._tables_by_group: Dict[str, List[DataFrame]] = {}
         for table_group in TABLE_GROUP_NAMES:
             self._tables_by_group[table_group] = []
         # Variable to keep track of the current table group.
         current_table_group_index = 0
         # Removing new lines from column names and removing unnamed columns.
         # Also removing empty dataframes.
-        # The sanitized dataframes are appended to the _tables list.
         for dataframe in dataframes:
             table_group = TABLE_GROUP_NAMES[current_table_group_index]
             # Don't consider empty tables.
@@ -58,7 +59,6 @@ class ChevroletPDFReader:
                 previous_table = self._tables_by_group[table_group][-1]
                 if len(previous_table.columns) != len(dataframe.columns):
                     current_table_group_index += 1
-                    self._tables_by_group[table_group].append(dataframe)
                 else:
                     # Check if all columns are the same.
                     same_columns = True
@@ -70,17 +70,12 @@ class ChevroletPDFReader:
                         # Increment the current table group index.
                         # This is to change the current table group from now on.
                         current_table_group_index += 1
-                    # Append the table to the current table group.
-                    table_group = TABLE_GROUP_NAMES[current_table_group_index]
-                    self._tables_by_group[table_group].append(dataframe)
+                # Append the table to the current table group.
+                table_group = TABLE_GROUP_NAMES[current_table_group_index]
+                self._tables_by_group[table_group].append(dataframe)
 
-    # This method returns the value of a column in a table.
-    # The table group is the name of the table group.
-    # The table index is the index of the table in the table group.
-    # The column name is the name of the column.
-    # The column line is the line of the column.
-    def get_column_value_by_line_number(self, table_group: str, table_index: int, column_name: str,
-                                        line_number: int) -> str:
+    def get_column_value(self, table_group: str, table_index: int, column_index_or_name: Union[int, str],
+                         line_number_or_name: Union[int, Tuple[int, str]]):
         # Return empty string if the table group doesn't exist.
         if table_group not in self._tables_by_group:
             return ''
@@ -88,63 +83,54 @@ class ChevroletPDFReader:
         if table_index >= len(self._tables_by_group[table_group]):
             return ''
         table = self._tables_by_group[table_group][table_index]
-        # Using fuzzywuzzy to find the most similar column name.
-        chosen_column = ''
-        chosen_column_ratio = 0
-        for column in table.columns:
-            ratio = fuzz.ratio(str.lower(column), str.lower(column_name))
-            if ratio >= 75 and ratio > chosen_column_ratio:
-                chosen_column = column
-                chosen_column_ratio = ratio
-        # Return empty string if the column name doesn't exist.
-        if line_number >= len(table[chosen_column]):
+        # Which column to use?
+        # Should we use the column name or the column index?
+        # It depends on the type of the column_index_or_name parameter (int or str).
+        column_index = 0
+        # If using column name...
+        if isinstance(column_index_or_name, str):
+            # Using fuzzywuzzy to find the most similar column name.
+            most_similar_column_index = 0
+            most_similar_column_ratio = 0
+            for index, name in enumerate(table.columns):
+                ratio = fuzz.ratio(str.lower(name), str.lower(column_index_or_name))
+                if ratio >= 75 and ratio > most_similar_column_ratio:
+                    most_similar_column_index = index
+                    most_similar_column_ratio = ratio
+            column_index = most_similar_column_index
+        # If using column index...
+        elif isinstance(column_index_or_name, int):
+            column_index = column_index_or_name
+        else:
             return ''
-        # Return the value of the column.
-        return table[chosen_column][line_number]
-
-    def get_column_value_by_line_name(self, table_group: str, table_index: int, column_name: str,
-                                      line_name: str) -> str:
-        # Return empty string if the table group doesn't exist.
-        if table_group not in self._tables_by_group:
+        # Ok, now we have the column index.
+        # Now, should we use the line number or a tuple (column_number, line_name)?
+        # It depends on the type of the line_number_or_name parameter (int or Tuple[int, str]).
+        # If using line number...
+        if isinstance(line_number_or_name, int):
+            if line_number_or_name >= len(table):
+                return ''
+            return table.iloc[line_number_or_name, column_index]
+        # If using tuple (column_number, line_name)...
+        elif isinstance(line_number_or_name, Tuple):
+            # Using fuzzywuzzy to find the most similar line name.
+            most_similar_line_index = 0
+            most_similar_line_ratio = 0
+            column_number = line_number_or_name[0]
+            line_name = line_number_or_name[1]
+            for index, name in enumerate(table.iloc[:, column_number]):
+                ratio = fuzz.ratio(str.lower(name), str.lower(line_name))
+                if ratio >= 75 and ratio > most_similar_line_ratio:
+                    most_similar_line_index = index
+                    most_similar_line_ratio = ratio
+            if most_similar_line_ratio == 0:
+                return ''
+            return table.iloc[most_similar_line_index, column_index]
+        else:
             return ''
-        # Return empty string if the table index is out of range.
-        if table_index >= len(self._tables_by_group[table_group]):
-            return ''
-        table = self._tables_by_group[table_group][table_index]
-        # Using fuzzywuzzy to find the most similar column name.
-        chosen_column = ''
-        chosen_column_ratio = 0
-        for column in table.columns:
-            ratio = fuzz.ratio(str.lower(column), str.lower(column_name))
-            if ratio >= 75 and ratio > chosen_column_ratio:
-                chosen_column = column
-                chosen_column_ratio = ratio
-        # Return empty string if the column name doesn't exist.
-        if chosen_column == '':
-            return ''
-        # Using fuzzywuzzy to find the most similar line name.
-        chosen_line = ''
-        chosen_line_ratio = 0
-        for line in table[chosen_column]:
-            # Skipping if the line is NaN or None.
-            if pd.isna(line) or line is None:
-                continue
-            ratio = fuzz.ratio(str.lower(line), str.lower(line_name))
-            if ratio >= 75 and ratio > chosen_line_ratio:
-                chosen_line = line
-                chosen_line_ratio = ratio
-        # Return empty string if the line name doesn't exist.
-        if chosen_line == '':
-            return ''
-        print(chosen_line)
-        # Return the value of the column.
-        # This line is not working...
-        return table[chosen_column][table[chosen_column] == chosen_line].index[0]
+        pass
 
 
 reader = ChevroletPDFReader('carros.pdf')
-value = reader.get_column_value_by_line_number('Configuration', 0, 'AT Turbo 116cv', 0)
+value = reader.get_column_value('Introduction', 0, 'Marca/Modelo', (0, '5N76HR'))
 print(value)
-
-value2 = reader.get_column_value_by_line_name('Configuration', 0, 'TRACKER - ANO/MODELO 2024', 'Alarme Anti-furto')
-print(value2)

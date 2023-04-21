@@ -1,8 +1,8 @@
-from os import PathLike
 import tabula
 from fuzzywuzzy import fuzz
 from pandas import DataFrame
-from typing import Union, List, Dict, Tuple, IO
+from typing import Union, List, Dict, Tuple
+from io import BytesIO
 
 
 # This class reads a PDF file and separates the tables into groups.
@@ -16,23 +16,28 @@ from typing import Union, List, Dict, Tuple, IO
 # Accessories 1
 # Accessories 2 (For now...) [BUG]
 #
-# This class offers methods so that TabulaPy manipulation is abstracted away.
+# This class offers methods so that manipulations with tabula-py are abstracted away.
 class ChevroletPDFReader:
     INTRODUCTION_GROUP = 'Introduction'
     CONFIGURATION_GROUP = 'Configuration'
     SPECIFICATION_GROUP = 'Specification'
     ACCESSORIES_1_GROUP = 'Accessories'
     ACCESSORIES_2_GROUP = 'Accessories 2'
-    _TABLE_GROUP_NAMES = [INTRODUCTION_GROUP, CONFIGURATION_GROUP, SPECIFICATION_GROUP, ACCESSORIES_1_GROUP, ACCESSORIES_2_GROUP]
+    _TABLE_GROUP_NAMES = [INTRODUCTION_GROUP, CONFIGURATION_GROUP,
+                          SPECIFICATION_GROUP, ACCESSORIES_1_GROUP, ACCESSORIES_2_GROUP, "", "", "", "", "", ""]
 
-    def __init__(self, input_path: Union[IO, str, PathLike]):
+    def __init__(self, pdf_bytes: BytesIO, encoding: str = 'ANSI', fuzzy_matching_ratio_threshold: int = 75):
         # Read all tables from the PDF file.
-        dataframes = tabula.read_pdf(input_path, pages='all', lattice=True, multiple_tables=True)
+        dataframes = tabula.read_pdf(
+            "carros.pdf", pages='all', lattice=True, multiple_tables=True, encoding=encoding)
+        # Set the fuzzy matching ratio threshold.
+        # This is used to match column names and line names.
+        self._fuzzy_matching_ratio_threshold = fuzzy_matching_ratio_threshold
         # Call the initial setup method.
         self._initial_setup(dataframes)
 
     # This method separates the tables into groups and sanitizes the dataframes.
-    def _initial_setup(self, dataframes) -> None:
+    def _initial_setup(self, dataframes: List[DataFrame]) -> None:
         # Map of tables by group.
         self._tables_by_group: Dict[str, List[DataFrame]] = {}
         for table_group in self._TABLE_GROUP_NAMES:
@@ -47,13 +52,21 @@ class ChevroletPDFReader:
             if dataframe.empty:
                 continue
             for column in dataframe.columns:
+                # Transform all column data to string to avoid errors found.
+                dataframe[column] = dataframe[column].astype(str)
                 # Remove new lines from column names.
-                dataframe.rename(columns={column: column.replace('\r', ' ')}, inplace=True)
+                dataframe.rename(
+                    columns={column: column.replace('\r', ' ')}, inplace=True)
                 # Remove unnamed columns.
                 if 'unnamed' in str.lower(column):
                     del dataframe[column]
             # Don't consider tables with only one column.
             if len(dataframe.columns) <= 1:
+                # Check if it is the technical specifications table.
+                # (this table is weird and must be handled separately).
+                # Get the only column name.
+                column_name = dataframe.columns[0]
+                print(column_name)
                 continue
             # Is the current table of the same group as the previous one?
             # Or is it a completely new group?
@@ -121,8 +134,9 @@ class ChevroletPDFReader:
             most_similar_column_index = 0
             most_similar_column_ratio = 0
             for index, name in enumerate(table.columns):
-                ratio = fuzz.ratio(str.lower(name), str.lower(column_index_or_name))
-                if ratio >= 75 and ratio > most_similar_column_ratio:
+                ratio = fuzz.ratio(
+                    str.lower(name), str.lower(column_index_or_name))
+                if ratio >= self._fuzzy_matching_ratio_threshold and ratio > most_similar_column_ratio:
                     most_similar_column_index = index
                     most_similar_column_ratio = ratio
             column_index = most_similar_column_index
@@ -148,7 +162,7 @@ class ChevroletPDFReader:
             line_name = line_number_or_name[1]
             for index, name in enumerate(table.iloc[:, column_number]):
                 ratio = fuzz.ratio(str.lower(name), str.lower(line_name))
-                if ratio >= 75 and ratio > most_similar_line_ratio:
+                if ratio >= self._fuzzy_matching_ratio_threshold and ratio > most_similar_line_ratio:
                     most_similar_line_index = index
                     most_similar_line_ratio = ratio
             if most_similar_line_ratio == 0:
@@ -156,27 +170,37 @@ class ChevroletPDFReader:
             return table.iloc[most_similar_line_index, column_index]
         else:
             return ''
-        pass
 
 
-# Instantiate the reader.
-reader = ChevroletPDFReader('carros.pdf')
+# ======================================================================================================================
+# Demo usage, uncomment to test.
 
-# Example 1: Get the value of the cell in the 'Marca/Modelo' column in the first line of the first table in the
-# 'Introduction' group.
-value_1 = reader.get_column_value(ChevroletPDFReader.INTRODUCTION_GROUP, 0, 'Marca/Modelo', 0)
-print(f"Value 1: {value_1}")
+# # Instantiate the reader.
+# reader = ChevroletPDFReader('carros.pdf')
 
-# Example 2: Get the value of the cell in the first column, in the first line of the second table in the
-# 'Introduction' group.
-value_2 = reader.get_column_value(ChevroletPDFReader.INTRODUCTION_GROUP, 1, 0, 0)
-print(f"Value 2: {value_2}")
+# # Example 1: Get the value of the cell in the 'Marca/Modelo' column in the first line of the first table in the
+# # 'Introduction' group.
+# value_1 = reader.get_column_value(
+#     ChevroletPDFReader.INTRODUCTION_GROUP, 0, 'Marca/Modelo', 0)
+# print(f"Value 1: {value_1}")
 
-value_3 = reader.get_column_value(ChevroletPDFReader.CONFIGURATION_GROUP, 0, 0, 0)
-print(f"Value 3: {value_3}")
+# # Example 2: Get the value of the cell in the first column, in the first line of the second table in the
+# # 'Introduction' group.
+# value_2 = reader.get_column_value(
+#     ChevroletPDFReader.INTRODUCTION_GROUP, 1, 0, 0)
+# print(f"Value 2: {value_2}")
 
-# Using the first configuration table, check if the 'LT Turbo 116cv' configuration has the 'Brake Light' option.
-# This is done by checking if the value of the cell in the 'LT Turbo 116cv' column in the 'Brake Light' line is
-# a X or not.
-value_4 = reader.get_column_value(ChevroletPDFReader.CONFIGURATION_GROUP, 0, 'LT Turbo 116cv', (0, 'Brake Light'))
-print(f"Value 4: {value_4}")
+# value_3 = reader.get_column_value(
+#     ChevroletPDFReader.CONFIGURATION_GROUP, 0, 0, 0)
+# print(f"Value 3: {value_3}")
+
+# # Using the first configuration table, check if the 'LT Turbo 116cv' configuration has the 'Brake Light' option.
+# # This is done by checking if the value of the cell in the 'LT Turbo 116cv' column in the 'Brake Light' line is
+# # a X or not.
+# value_4 = reader.get_column_value(
+#     ChevroletPDFReader.CONFIGURATION_GROUP, 0, 'LT Turbo 116cv', (0, 'Brake Light'))
+# print(f"Value 4: {value_4}")
+
+reader = ChevroletPDFReader("carros.pdf")
+
+

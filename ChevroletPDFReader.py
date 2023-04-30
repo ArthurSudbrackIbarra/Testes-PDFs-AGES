@@ -20,11 +20,12 @@ from io import BytesIO
 class ChevroletPDFReader:
     INTRODUCTION_GROUP = 'Introduction'
     CONFIGURATION_GROUP = 'Configuration'
+    CONFIGURATION_GROUP_2 = 'Configuration 2'
     SPECIFICATION_GROUP = 'Specification'
     ACCESSORIES_1_GROUP = 'Accessories'
     ACCESSORIES_2_GROUP = 'Accessories 2'
-    _TABLE_GROUP_NAMES = [INTRODUCTION_GROUP, CONFIGURATION_GROUP,
-                          SPECIFICATION_GROUP, ACCESSORIES_1_GROUP, ACCESSORIES_2_GROUP, "", "", "", "", "", ""]
+    _TABLE_GROUP_NAMES = [INTRODUCTION_GROUP, CONFIGURATION_GROUP, CONFIGURATION_GROUP_2,
+                          ACCESSORIES_1_GROUP, ACCESSORIES_2_GROUP, "", "", "", "", "", ""]
 
     def __init__(self, pdf_bytes: BytesIO, encoding: str = 'ANSI', fuzzy_matching_ratio_threshold: int = 75):
         # Read all tables from the PDF file.
@@ -42,6 +43,7 @@ class ChevroletPDFReader:
         self._tables_by_group: Dict[str, List[DataFrame]] = {}
         for table_group in self._TABLE_GROUP_NAMES:
             self._tables_by_group[table_group] = []
+        self._tables_by_group[ChevroletPDFReader.SPECIFICATION_GROUP] = []
         # Variable to keep track of the current table group.
         current_table_group_index = 0
         # Removing new lines from column names and removing unnamed columns.
@@ -62,11 +64,16 @@ class ChevroletPDFReader:
                     del dataframe[column]
             # Don't consider tables with only one column.
             if len(dataframe.columns) <= 1:
-                # Check if it is the technical specifications table.
+                # Check if it is a technical specifications table.
                 # (this table is weird and must be handled separately).
                 # Get the only column name.
                 column_name = dataframe.columns[0]
-                print(column_name)
+                # Check if the column name is similar to "Especificações Técnicas".
+                ratio = fuzz.ratio(str.lower(column_name), 'especificações técnicas')
+                if ratio < 50:
+                    continue
+                # If it is, then it is a technical specifications table.
+                self._tables_by_group[ChevroletPDFReader.SPECIFICATION_GROUP].append(dataframe)
                 continue
             # Is the current table of the same group as the previous one?
             # Or is it a completely new group?
@@ -171,6 +178,14 @@ class ChevroletPDFReader:
         else:
             return ''
 
+    def print_tables(self):
+        for group_name, tables in self._tables_by_group.items():
+            print(f"Group: {group_name}")
+            for index, table in enumerate(tables):
+                print(f"Table {index}:")
+                print(table)
+                print('')
+
 
 # ======================================================================================================================
 # Demo usage, uncomment to test.
@@ -203,4 +218,4 @@ class ChevroletPDFReader:
 
 reader = ChevroletPDFReader("carros.pdf")
 
-
+reader.print_tables()

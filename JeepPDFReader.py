@@ -1,6 +1,7 @@
 import pdfplumber
 from fuzzywuzzy import fuzz
 from typing import Dict, List
+from io import BytesIO
 
 
 # Method that uses Fuzzy string matching to check if two strings are similar.
@@ -23,11 +24,17 @@ class JeepPDFReader:
     POSSIBLE_FUEL_TYPES = ['flex', 'diesel', 'gasolina']
 
     # Constructor of the class.
-    def __init__(self, file_path: str):
-        self.file_path: str = file_path
-        self.cars: Dict[str, Dict[str, str]] = {}
-        self.column_names: List[str] = []
-        self._initial_setup()
+    def __init__(self, pdf_bytes: BytesIO = None, file_path: str = ''):
+        if pdf_bytes is not None:
+            self._target: str | BytesIO = pdf_bytes
+        elif file_path != '':
+            self._target: str | BytesIO = file_path
+        else:
+            raise ValueError('You must provide either a PDF file path or a PDF file bytes.')
+        self._cars: Dict[str, Dict[str, str]] = {}
+        self._column_names: List[str] = []
+        # Call the method to populate the 'cars' dictionary.
+        self._build_cars_dict()
 
     # Method that reads the PDF file and extracts the data from it.
     # It is called by the constructor.
@@ -43,8 +50,8 @@ class JeepPDFReader:
     #       'PÁGINA': '...'
     #   },
     #   ...
-    def _initial_setup(self):
-        with pdfplumber.open(self.file_path) as pdf:
+    def _build_cars_dict(self):
+        with pdfplumber.open(self._target) as pdf:
             pages = pdf.pages
             reading_cars = False
             # Iterates through the pages of the PDF file.
@@ -89,26 +96,31 @@ class JeepPDFReader:
                         # If the 'sigla' is valid and the line is not the table footer...
                         # It means that we still have cars to process.
                         if len(sigla) == 7 and not is_similar(line, JeepPDFReader.TABLE_FOOTER_STRING_MATCH):
-                            self.cars[sigla] = {}
-                            for i in range(len(self.column_names)):
-                                self.cars[sigla][self.column_names[i]] = car_data_parsed[i]
+                            self._cars[sigla] = {}
+                            for i in range(len(self._column_names)):
+                                self._cars[sigla][self._column_names[i]] = car_data_parsed[i]
                         else:
                             # If the 'sigla' is not valid or the line is the table footer...
                             # It means that we have finished processing the cars.
-                            # Set the 'reading_cars' flag to False.
-                            reading_cars = False
-                    # If not in the process of reading the cars...
+                            # Exit the method.
+                            return
+                    # Check if the line is the line that contains the column names.
+                    # That would mean that we are about to start reading the cars.
                     elif is_similar(line, JeepPDFReader.COLUMN_NAMES_STRING_MATCH):
-                        self.column_names = line.split(' ')
+                        self._column_names = line.split(' ')
                         reading_cars = True
+                    # If we enter this else statement, that means we have already read all the cars.
+                    # Now we must fill the 'cars' dictionary with the data from each car.
+                    else:
+                        pass
 
     # Method that returns the cars extracted from the PDF file.
     # It returns a copy of the dictionary, so that the original dictionary is not modified.
     def get_cars(self) -> Dict[str, Dict[str, str]]:
-        return self.cars.copy()
+        return self._cars.copy()
 
 
 # Testing the class.
-reader = JeepPDFReader('jeep2.pdf')
+reader = JeepPDFReader(file_path='jeep_pdfs/jeep_2.pdf')
 cars = reader.get_cars()
 print(cars)

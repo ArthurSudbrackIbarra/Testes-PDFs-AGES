@@ -102,8 +102,8 @@ class JeepPDFReader:
                         else:
                             # If the 'sigla' is not valid or the line is the table footer...
                             # It means that we have finished processing the cars.
-                            # Exit the method.
-                            return
+                            # Set the 'reading_cars' flag to False.
+                            reading_cars = False
                     # Check if the line is the line that contains the column names.
                     # That would mean that we are about to start reading the cars.
                     elif is_similar(line, JeepPDFReader.COLUMN_NAMES_STRING_MATCH):

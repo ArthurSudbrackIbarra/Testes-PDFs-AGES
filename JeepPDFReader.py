@@ -16,8 +16,19 @@ def is_similar(str1, str2, ratio: int = 75):
 
 # Constants.
 #
+# Field names of the first and only table of the PDF file.
+SIGLA = 'sigla'
+ANO = 'ano'
+DESC_CAT = 'desc_cat'
+LINHA = 'linha'
+DESC_RENAVAM = 'desc_renavam'
+MARCA = 'marca'
+COMBUSTIVEL = 'combustivel'
+POTENCIA = 'potencia'
+PRECO = 'preco'
+PAGINA = 'pagina'
 # Column names of the first and only table of the PDF file.
-COLUMN_NAMES = ['mvs', 'my', 'descricao', 'combustivel', 'preco', 'pagina']
+COLUMN_NAMES = [SIGLA, ANO, DESC_CAT, COMBUSTIVEL, PRECO, PAGINA]
 #
 # Other constants for pattern matching.
 COLUMN_NAMES_STRING_MATCH = "MVS MY DESCRIÇÃO COMB. PREÇO(R$) PÁGINA"
@@ -52,16 +63,18 @@ class JeepPDFReader:
 
     # Method that reads the PDF file and extracts the data from it.
     # It is called by the constructor.
-    # It fills the 'cars' dictionary with the data extracted from the PDF file.
+    # It fills the 'cars' dictionary with the basic data extracted from the PDF file.
     # The dictionary has the following structure:
     # {
-    #   'sigla': {
-    #       'mvs': '...',
-    #       'my': '...',
-    #       'descricao': '...',
-    #       'combustivel': '...',
+    #   'nome_carro': {
+    #       'sigla': '...',
+    #       'ano': '...',
+    #       'desc_cat': '...',
+    #       'desc_renavam': '...',
+    #       'marca': '...',
+    #       'combustivel': '...'
+    #       'linha': '...',
     #       'preco': '...',
-    #       'pagina': '...'
     #   },
     #   ...
     def _build_cars_dict(self) -> None:
@@ -118,6 +131,13 @@ class JeepPDFReader:
                             self._cars[car_name] = {}
                             for i in range(len(COLUMN_NAMES)):
                                 self._cars[car_name][COLUMN_NAMES[i]] = car_data_parsed[i]
+                            # Set car's custom attributes.
+                            car_parts = self._cars[car_name][DESC_CAT].split(' ')
+                            desc_renavam = car_parts[1:]
+                            linha = car_parts[0]
+                            self._cars[car_name][LINHA] = linha
+                            self._cars[car_name][DESC_RENAVAM] = ' '.join(desc_renavam)
+                            self._cars[car_name][MARCA] = 'JEEP'
                         else:
                             # If the 'sigla' is not valid or the line is the table footer...
                             # It means that we have finished processing the cars.
@@ -130,7 +150,7 @@ class JeepPDFReader:
             # Call the _fill_cars_data method.
             self._fill_cars_data(pages)
 
-    # Method responsible for going into each car's page and extracting the data from it.
+    # Method responsible for filling the rest of the data of the cars.
     # It is called by the _build_cars_dict method.
     def _fill_cars_data(self, pages: List[Page]) -> None:
         car_names = list(self._cars.keys())
@@ -161,9 +181,6 @@ class JeepPDFReader:
                     # Move on to the next car.
                     if is_similar(line, TABLE_FOOTER_STRING_MATCH):
                         print(f'[Finished processing {current_car}]')
-                        # Remove later...
-                        return
-                        #####
                         reading_car = False
                         current_car_index = next_car_index
                         current_car = next_car
@@ -180,7 +197,7 @@ class JeepPDFReader:
                     if str.lower(line).startswith('modelo:'):
                         result = search(POTENCIA_REGEX, line)
                         potencia = result.group(1)
-                        self._cars[current_car]['potencia'] = potencia
+                        self._cars[current_car][POTENCIA] = potencia
 
     # Method that returns the cars extracted from the PDF file.
     # It returns a copy of the dictionary, so that the original dictionary is not modified.

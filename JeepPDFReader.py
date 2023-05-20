@@ -3,6 +3,7 @@ from io import BytesIO
 from pdfplumber.page import Page
 from fuzzywuzzy import fuzz
 from typing import Dict, List, Union
+from re import search
 
 
 # Method that uses Fuzzy string matching to check if two strings are similar.
@@ -22,8 +23,13 @@ COLUMN_NAMES = ['mvs', 'my', 'descricao', 'combustivel', 'preco', 'pagina']
 COLUMN_NAMES_STRING_MATCH = "MVS MY DESCRIÇÃO COMB. PREÇO(R$) PÁGINA"
 TABLE_FOOTER_STRING_MATCH = "Tabela temporária e provisória, sujeita a modificações diárias. Para uso exclusivo e " \
                             "simples consulta por parte do profissional vendedor, não gerando obrigações de venda " \
-                            "pelos valores meramente indicativos. "
+                            "pelos valores meramente indicativos."
 POSSIBLE_FUEL_TYPES = ['flex', 'diesel', 'gasolina']
+#
+# Regex constants.
+#
+# Regex to match the 'potência' information.
+POTENCIA_REGEX = r'Potência máxima \(cv\) : ([0-9]+cv)'
 
 
 # JeepPDFReader class that reads a PDF file and extracts the data from it.
@@ -65,9 +71,6 @@ class JeepPDFReader:
             # Iterates through the pages of the PDF file.
             for page in pages:
                 page_content = page.extract_text()
-
-                print(page_content)
-
                 lines = page_content.split('\n')
                 # Iterates through the lines of the page.
                 for line in lines:
@@ -124,13 +127,60 @@ class JeepPDFReader:
                     elif is_similar(line, COLUMN_NAMES_STRING_MATCH):
                         reading_cars = True
             # Fill the rest of the data of the cars.
-            # Call the _fill_car_data method.
-            self._fill_car_data(pages)
+            # Call the _fill_cars_data method.
+            self._fill_cars_data(pages)
 
     # Method responsible for going into each car's page and extracting the data from it.
-    # It is called by the _initial_setup method.
-    def _fill_car_data(self, pages: List[Page]) -> None:
-        pass
+    # It is called by the _build_cars_dict method.
+    def _fill_cars_data(self, pages: List[Page]) -> None:
+        car_names = list(self._cars.keys())
+        current_car_index = 0
+        current_car = car_names[current_car_index]
+        next_car_index = 1
+        next_car = car_names[next_car_index]
+        reading_car = False
+        for page in pages:
+            page_content = page.extract_text()
+            lines = page_content.split('\n')
+            for line in lines:
+                # If the current_car is None, it means that we have finished reading all the cars.
+                # Exit the method.
+                if current_car is None:
+                    return
+                # Check if the line is equal to the next car name.
+                # If so, set the reading_car flag to True.
+                if str.lower(line).strip() == str.lower(current_car).strip():
+                    print(f'[Now Processing {current_car}]')
+                    reading_car = True
+                    continue
+                # If reading a car...
+                if reading_car:
+                    print(line)
+                    # Check if the line is equal to the pdf footer.
+                    # If so, we have finished reading the car.
+                    # Move on to the next car.
+                    if is_similar(line, TABLE_FOOTER_STRING_MATCH):
+                        print(f'[Finished processing {current_car}]')
+                        # Remove later...
+                        return
+                        #####
+                        reading_car = False
+                        current_car_index = next_car_index
+                        current_car = next_car
+                        if current_car_index + 1 < len(car_names):
+                            next_car_index += 1
+                            next_car = car_names[next_car_index]
+                        else:
+                            next_car = None
+                        continue
+                    # If the line is not equal to the pdf footer...
+                    # We are still reading the car.
+                    #
+                    # Check if it is the line with the 'potência' information.
+                    if str.lower(line).startswith('modelo:'):
+                        result = search(POTENCIA_REGEX, line)
+                        potencia = result.group(1)
+                        self._cars[current_car]['potencia'] = potencia
 
     # Method that returns the cars extracted from the PDF file.
     # It returns a copy of the dictionary, so that the original dictionary is not modified.
